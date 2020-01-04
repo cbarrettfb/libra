@@ -96,7 +96,7 @@ function {:inline} RemoveValueArray(a: ValueArray): ValueArray {
 function {:inline} ConcatValueArray(a1: ValueArray, a2: ValueArray): ValueArray {
     ValueArray(ValueSeqConcat(v#ValueArray(a1), v#ValueArray(a2)))
 }
-// TODO: fix these
+// TODO: fix
 procedure {:inline 1} ReverseValueArray(a: ValueArray) returns (ret: ValueArray)
 {
     var len : int;
@@ -117,7 +117,8 @@ function {:inline} UpdateValueArray(a: ValueArray, i: int, elem: Value): ValueAr
 	                           ValueSeqExtract(v#ValueArray(a), i + 1, ValueSeqLen(v#ValueArray(a)) - i - 1)))
 }
 function {:inline} SwapValueArray(a: ValueArray, i: int, j: int): ValueArray {
-    a
+    if i == j then a
+    else UpdateValueArray(UpdateValueArray(a, i, ValueSeqNth(v#ValueArray(a), j)), j, ValueSeqNth(v#ValueArray(a), i))
 }
 function {:inline} IsEmpty(a: ValueArray): bool {
     ValueSeqLen(v#ValueArray(a)) == 0
