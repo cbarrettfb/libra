@@ -205,7 +205,7 @@ impl<'a> BoogieTranslator<'a> {
 
                 let type_value = format!("StructType({}, {})", struct_name, field_types);
                 emit_str(&format!(
-                    "function {}_type_value({}): TypeValue {{\n    {}\n}}\n",
+                    "function {{:inline}} {}_type_value({}): TypeValue {{\n    {}\n}}\n",
                     struct_name, type_args, type_value
                 ));
 

@@ -21,7 +21,7 @@ impl<'a> BoogieTranslator<'a> {
         let mut type_args_str = String::new();
         let mut args_str = String::new();
         let mut typechecking_str = String::new();
-        let mut fields_str = String::from("EmptyValueArray");
+        let mut fields_str = String::from("EmptyValueArray()");
         // pack
         for i in 0..struct_type_arity {
             if !type_args_str.is_empty() {
@@ -38,7 +38,7 @@ impl<'a> BoogieTranslator<'a> {
                 "    {}",
                 &format_type_checking(module, format!("v{}", i), field_type)
             ));
-            fields_str = format!("ExtendValueArray({}, v{})", fields_str, i);
+            fields_str = format!("AddValueArray({}, v{})", fields_str, i);
         }
         res.push_str(&format!(
             "procedure {{:inline 1}} Pack_{}({}) returns (v: Value)\n{{\n",

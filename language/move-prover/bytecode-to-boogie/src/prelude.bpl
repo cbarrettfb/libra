@@ -12,7 +12,7 @@ function {:constructor} Path(p: [int]Edge, size: int): Path;
 const EmptyPath: Path;
 axiom size#Path(EmptyPath) == 0;
 
-function {:inline 1} path_index_at(p: Path, i: int): int {
+function {:inline} path_index_at(p: Path, i: int): int {
     p#Path(p)[i]
 }
 
@@ -39,7 +39,7 @@ const EmptyTypeValueArray: TypeValueArray;
 axiom l#TypeValueArray(EmptyTypeValueArray) == 0;
 axiom v#TypeValueArray(EmptyTypeValueArray) == MapConstTypeValue(DefaultTypeValue);
 
-function {:inline 1} ExtendTypeValueArray(ta: TypeValueArray, tv: TypeValue): TypeValueArray {
+function {:inline} ExtendTypeValueArray(ta: TypeValueArray, tv: TypeValue): TypeValueArray {
     TypeValueArray(v#TypeValueArray(ta)[l#TypeValueArray(ta) := tv], l#TypeValueArray(ta) + 1)
 }
 
@@ -61,49 +61,66 @@ function {:constructor} Address(a: Address): Value;
 function {:constructor} ByteArray(b: ByteArray): Value;
 function {:constructor} Str(a: String): Value;
 function {:constructor} Vector(v: ValueArray): Value; // used to both represent move Struct and Vector
+
+// ValueSeq
+// -----------
+
+type {:builtindecl ""} {:builtin "(Seq T@Value)"} ValueSeq;
+function {:builtin "(as seq.empty (Seq T@Value))"} EmptyValueSeq(): ValueSeq;
+function {:builtin "seq.len"} ValueSeqLen(a: ValueSeq): int;
+function {:builtin "seq.++"} ValueSeqConcat(a: ValueSeq, b:ValueSeq): ValueSeq;
+function {:builtin "seq.++"} ValueSeqConcat3(a: ValueSeq, b:ValueSeq, c:ValueSeq): ValueSeq;
+function {:builtin "seq.unit"} ValueSeqUnit(v: Value): ValueSeq;
+function {:builtin "seq.nth"} ValueSeqNth(a: ValueSeq, i: int): Value;
+function {:builtin "seq.extract"} ValueSeqExtract(a: ValueSeq, i: int, j: int): ValueSeq;
+
 const DefaultValue: Value;
-function {:builtin "MapConst"} MapConstValue(v: Value): [int]Value;
 
 
 // Value Array
 // -----------
 
-type {:datatype} ValueArray;
+type {:datatype} {:dependson "Value"} ValueArray;
 
-function {:constructor} ValueArray(v: [int]Value, l: int): ValueArray;
-const EmptyValueArray: ValueArray;
+function {:constructor} ValueArray(v: ValueSeq): ValueArray;
 
-axiom l#ValueArray(EmptyValueArray) == 0;
-axiom v#ValueArray(EmptyValueArray) == MapConstValue(DefaultValue);
-function {:inline 1} AddValueArray(a: ValueArray, v: Value): ValueArray {
-    ValueArray(v#ValueArray(a)[l#ValueArray(a) := v], l#ValueArray(a) + 1)
+function {:inline} EmptyValueArray(): ValueArray {
+    ValueArray(EmptyValueSeq())
 }
-
-function {:inline 1} RemoveValueArray(a: ValueArray): ValueArray {
-    ValueArray(v#ValueArray(a)[l#ValueArray(a) := DefaultValue], l#ValueArray(a) - 1)
+function {:inline} AddValueArray(a: ValueArray, v: Value): ValueArray {
+    ValueArray(ValueSeqConcat(v#ValueArray(a),ValueSeqUnit(v)))
 }
-function {:inline 1} ConcatValueArray(a1: ValueArray, a2: ValueArray): ValueArray {
-    ValueArray(
-        (lambda i: int :: if i < l#ValueArray(a1) then v#ValueArray(a1)[i] else v#ValueArray(a2)[i - l#ValueArray(a1)]),
-        l#ValueArray(a1) + l#ValueArray(a2))
+function {:inline} RemoveValueArray(a: ValueArray): ValueArray {
+    ValueArray(ValueSeqExtract(v#ValueArray(a), 0, ValueSeqLen(v#ValueArray(a)) - 1))
 }
-function {:inline 1} ReverseValueArray(a: ValueArray): ValueArray {
-    ValueArray(
-        (lambda i: int :: if 0 <= i && i < l#ValueArray(a) then v#ValueArray(a)[l#ValueArray(a) - i - 1] else DefaultValue),
-        l#ValueArray(a)
-    )
+function {:inline} ConcatValueArray(a1: ValueArray, a2: ValueArray): ValueArray {
+    ValueArray(ValueSeqConcat(v#ValueArray(a1), v#ValueArray(a2)))
 }
-function {:inline 1} ExtendValueArray(a: ValueArray, elem: Value): ValueArray {
-    ValueArray(v#ValueArray(a)[l#ValueArray(a) := elem], l#ValueArray(a) + 1)
+// TODO: fix these
+procedure {:inline 1} ReverseValueArray(a: ValueArray) returns (ret: ValueArray)
+{
+    var len : int;
+    len := ValueSeqLen(v#ValueArray(a));
+    assume ValueSeqLen(v#ValueArray(ret)) == len;
+    assume (forall i: int :: 0 <= i && i < len ==> ValueSeqNth(v#ValueArray(ret), i) == ValueSeqNth(v#ValueArray(a), len - i - 1));
 }
-function {:inline 1} UpdateValueArray(a: ValueArray, i: int, elem: Value): ValueArray {
-    ValueArray(v#ValueArray(a)[i := elem], l#ValueArray(a))
+function {:inline} UpdateValueArray(a: ValueArray, i: int, elem: Value): ValueArray {
+    if (i == 0) then
+      if (ValueSeqLen(v#ValueArray(a)) == 1) then
+        ValueArray(ValueSeqUnit(elem))
+      else
+        ValueArray(ValueSeqConcat(ValueSeqUnit(elem), ValueSeqExtract(v#ValueArray(a), 1, ValueSeqLen(v#ValueArray(a)) - 1)))
+    else if (i == ValueSeqLen(v#ValueArray(a)) - 1) then
+        ValueArray(ValueSeqConcat(ValueSeqExtract(v#ValueArray(a), 0, ValueSeqLen(v#ValueArray(a)) - 1), ValueSeqUnit(elem)))
+    else
+        ValueArray(ValueSeqConcat3(ValueSeqExtract(v#ValueArray(a), 0, i), ValueSeqUnit(elem),
+	                           ValueSeqExtract(v#ValueArray(a), i + 1, ValueSeqLen(v#ValueArray(a)) - i - 1)))
 }
-function {:inline 1} SwapValueArray(a: ValueArray, i: int, j: int): ValueArray {
-    ValueArray(v#ValueArray(a)[i := v#ValueArray(a)[j]][j := v#ValueArray(a)[i]], l#ValueArray(a))
+function {:inline} SwapValueArray(a: ValueArray, i: int, j: int): ValueArray {
+    a
 }
-function {:inline 1} IsEmpty(a: ValueArray): bool {
-    l#ValueArray(a) == 0
+function {:inline} IsEmpty(a: ValueArray): bool {
+    ValueSeqLen(v#ValueArray(a)) == 0
 }
 
 
@@ -116,124 +133,102 @@ function {:inline 1} IsEmpty(a: ValueArray): bool {
 
 // STRATIFICATION_DEPTH: 4
 
-function {:inline 1} IsEqual4(v1: Value, v2: Value): bool {
+// function {:inline} IsEqual4(v1: Value, v2: Value): bool {
+//     v1 == v2
+// }
+// function {:inline} IsEqual3(v1: Value, v2: Value): bool {
+//     (v1 == v2) ||
+//     (is#Vector(v1) &&
+//      is#Vector(v2) &&
+//      vlen(v1) == vlen(v2) &&
+//      (forall i: int :: 0 <= i && i < vlen(v1) ==> IsEqual4(vmap(v1, i), vmap(v2, i))))
+// }
+// function {:inline} IsEqual2(v1: Value, v2: Value): bool {
+//     (v1 == v2) ||
+//     (is#Vector(v1) &&
+//      is#Vector(v2) &&
+//      vlen(v1) == vlen(v2) &&
+//      (forall i: int :: 0 <= i && i < vlen(v1) ==> IsEqual3(vmap(v1,i), vmap(v2,i))))
+// }
+// function {:inline} IsEqual1(v1: Value, v2: Value): bool {
+//     (v1 == v2) ||
+//     (is#Vector(v1) &&
+//      is#Vector(v2) &&
+//      vlen(v1) == vlen(v2) &&
+//      (forall i: int :: 0 <= i && i < vlen(v1) ==> IsEqual2(vmap(v1,i), vmap(v2,i))))
+// }
+function {:inline} IsEqual(v1: Value, v2: Value): bool {
     v1 == v2
 }
-function {:inline 1} IsEqual3(v1: Value, v2: Value): bool {
-    (v1 == v2) ||
-    (is#Vector(v1) &&
-     is#Vector(v2) &&
-     vlen(v1) == vlen(v2) &&
-     (forall i: int :: 0 <= i && i < vlen(v1) ==> IsEqual4(vmap(v1)[i], vmap(v2)[i])))
-}
-function {:inline 1} IsEqual2(v1: Value, v2: Value): bool {
-    (v1 == v2) ||
-    (is#Vector(v1) &&
-     is#Vector(v2) &&
-     vlen(v1) == vlen(v2) &&
-     (forall i: int :: 0 <= i && i < vlen(v1) ==> IsEqual3(vmap(v1)[i], vmap(v2)[i])))
-}
-function {:inline 1} IsEqual1(v1: Value, v2: Value): bool {
-    (v1 == v2) ||
-    (is#Vector(v1) &&
-     is#Vector(v2) &&
-     vlen(v1) == vlen(v2) &&
-     (forall i: int :: 0 <= i && i < vlen(v1) ==> IsEqual2(vmap(v1)[i], vmap(v2)[i])))
-}
-function {:inline 1} IsEqual(v1: Value, v2: Value): bool {
-    IsEqual1(v1, v2)
-}
 
-function {:inline 1} ReadValue4(p: Path, v: Value): Value {
+function {:inline} ReadValue2(p: Path, v: Value) : Value {
     v
 }
-function {:inline 1} ReadValue3(p: Path, v: Value) : Value {
-    if (3 == size#Path(p)) then
-        v
-    else
-        ReadValue4(p, vmap(v)[path_index_at(p, 3)])
-}
-function {:inline 1} ReadValue2(p: Path, v: Value) : Value {
-    if (2 == size#Path(p)) then
-        v
-    else
-        ReadValue3(p, vmap(v)[path_index_at(p, 2)])
-}
-function {:inline 1} ReadValue1(p: Path, v: Value) : Value {
+function {:inline} ReadValue1(p: Path, v: Value) : Value {
     if (1 == size#Path(p)) then
         v
     else
-        ReadValue2(p, vmap(v)[path_index_at(p, 1)])
+        ReadValue2(p, vmap(v,path_index_at(p, 1)))
 }
-function {:inline 1} ReadValue0(p: Path, v: Value) : Value {
+function {:inline} ReadValue0(p: Path, v: Value) : Value {
     if (0 == size#Path(p)) then
         v
     else
-        ReadValue1(p, vmap(v)[path_index_at(p, 0)])
+        ReadValue1(p, vmap(v,path_index_at(p, 0)))
 }
-function {:inline 1} ReadValue(p: Path, v: Value): Value {
+function {:inline} ReadValue(p: Path, v: Value): Value {
     ReadValue0(p, v)
 }
 
-function {:inline 1} UpdateValue4(p: Path, v: Value, new_v: Value): Value {
+function {:inline} UpdateValue2(p: Path, v: Value, new_v: Value): Value {
     new_v
 }
-function {:inline 1} UpdateValue3(p: Path, v: Value, new_v: Value): Value {
-    if (3 == size#Path(p)) then
-        new_v
-    else
-        update_vector(v, path_index_at(p, 3), UpdateValue4(p, vmap(v)[path_index_at(p, 3)], new_v))
-}
-function {:inline 1} UpdateValue2(p: Path, v: Value, new_v: Value): Value {
-    if (2 == size#Path(p)) then
-        new_v
-    else
-        update_vector(v, path_index_at(p, 2), UpdateValue3(p, vmap(v)[path_index_at(p, 2)], new_v))
-}
-function {:inline 1} UpdateValue1(p: Path, v: Value, new_v: Value): Value {
+function {:inline} UpdateValue1(p: Path, v: Value, new_v: Value): Value {
     if (1 == size#Path(p)) then
         new_v
     else
-        update_vector(v, path_index_at(p, 1), UpdateValue2(p, vmap(v)[path_index_at(p, 1)], new_v))
+        update_vector(v, path_index_at(p, 1), UpdateValue2(p, vmap(v,path_index_at(p, 1)), new_v))
 }
-function {:inline 1} UpdateValue0(p: Path, v: Value, new_v: Value): Value {
+function {:inline} UpdateValue0(p: Path, v: Value, new_v: Value): Value {
     if (0 == size#Path(p)) then
         new_v
     else
-        update_vector(v, path_index_at(p, 0), UpdateValue1(p, vmap(v)[path_index_at(p, 0)], new_v))
+        update_vector(v, path_index_at(p, 0), UpdateValue1(p, vmap(v,path_index_at(p, 0)), new_v))
 }
-function {:inline 1} UpdateValue(p: Path, v: Value, new_v: Value): Value {
+function {:inline} UpdateValue(p: Path, v: Value, new_v: Value): Value {
     UpdateValue0(p, v, new_v)
 }
 
 // Vector related functions on values
 // ----------------------------------
 
-function {:inline 1} vmap(v: Value): [int]Value {
-    v#ValueArray(v#Vector(v))
+function {:inline} vmap(v: Value, i: int): Value {
+    ValueSeqNth(v#ValueArray(v#Vector(v)), i)
 }
-function {:inline 1} vlen(v: Value): int {
-    l#ValueArray(v#Vector(v))
+function {:inline} vlen(v: Value): int {
+    ValueSeqLen(v#ValueArray(v#Vector(v)))
 }
-function {:inline 1} mk_vector(): Value {
-    Vector(EmptyValueArray)
+function {:inline} mk_vector(): Value {
+    Vector(EmptyValueArray())
 }
-function {:inline 1} push_back_vector(v: Value, elem: Value): Value {
+function {:inline} push_back_vector(v: Value, elem: Value): Value {
     Vector(AddValueArray(v#Vector(v), elem))
 }
-function {:inline 1} pop_back_vector(v: Value): Value {
+function {:inline} pop_back_vector(v: Value): Value {
     Vector(RemoveValueArray(v#Vector(v)))
 }
-function {:inline 1} append_vector(v1: Value, v2: Value): Value {
+function {:inline} append_vector(v1: Value, v2: Value): Value {
     Vector(ConcatValueArray(v#Vector(v1), v#Vector(v2)))
 }
-function {:inline 1} reverse_vector(v: Value): Value {
-    Vector(ReverseValueArray(v#Vector(v)))
+procedure {:inline 1} reverse_vector(v: Value) returns (ret: Value) {
+    var r: ValueArray;
+    call r := ReverseValueArray(v#Vector(v));
+    ret := Vector(r);
 }
-function {:inline 1} update_vector(v: Value, i: int, elem: Value): Value {
+function {:inline} update_vector(v: Value, i: int, elem: Value): Value {
     Vector(UpdateValueArray(v#Vector(v), i, elem))
 }
-function {:inline 1} swap_vector(v: Value, i: int, j: int): Value {
+function {:inline} swap_vector(v: Value, i: int, j: int): Value {
     Vector(SwapValueArray(v#Vector(v), i, j))
 }
 
@@ -262,11 +257,11 @@ var m : Memory;
 var local_counter : int;
 var abort_flag: bool;
 
-function {:inline 1} GetLocal(m: Memory, idx: int): Value {
+function {:inline} GetLocal(m: Memory, idx: int): Value {
    contents#Memory(m)[Local(idx)]
 }
 
-function {:inline 1} UpdateLocal(m: Memory, idx: int, v: Value): Memory {
+function {:inline} UpdateLocal(m: Memory, idx: int, v: Value): Memory {
     Memory(domain#Memory(m)[Local(idx) := true], contents#Memory(m)[Local(idx) := v])
 }
 
@@ -281,25 +276,25 @@ procedure {:inline 1} InitMemory() {
 // TODO: unify some of this with instruction procedures to avoid duplication
 
 // Tests whether resource exists.
-function {:inline 1} ExistsResourceRaw(m: Memory, resource: TypeValue, addr: Address): bool {
+function {:inline} ExistsResourceRaw(m: Memory, resource: TypeValue, addr: Address): bool {
     domain#Memory(m)[Global(resource, addr)]
 }
-function {:inline 1} ExistsResource(m: Memory, resource: TypeValue, addr: Address): Value {
+function {:inline} ExistsResource(m: Memory, resource: TypeValue, addr: Address): Value {
     Boolean(ExistsResourceRaw(m, resource, addr))
 }
 
 // Obtains reference to the given resource.
-function {:inline 1} GetResourceReference(resource: TypeValue, addr: Address): Reference {
+function {:inline} GetResourceReference(resource: TypeValue, addr: Address): Reference {
     Reference(Global(resource, addr), EmptyPath)
 }
 
 // Obtains reference to local.
-function {:inline 1} GetLocalReference(frame_idx: int, idx: int): Reference {
+function {:inline} GetLocalReference(frame_idx: int, idx: int): Reference {
     Reference(Local(frame_idx + idx), EmptyPath)
 }
 
 // Applies a field selection to the reference.
-function {:inline 1} SelectFieldFromRef(ref: Reference, field: FieldName): Reference {
+function {:inline} SelectFieldFromRef(ref: Reference, field: FieldName): Reference {
     Reference(
       l#Reference(ref),
       Path(p#Path(p#Reference(ref))[size#Path(p#Reference(ref)) := field], size#Path(p#Reference(ref)) + 1)
@@ -307,17 +302,17 @@ function {:inline 1} SelectFieldFromRef(ref: Reference, field: FieldName): Refer
 }
 
 // Applies a field selection to a value.
-function {:inline 1} SelectField(val: Value, field: FieldName): Value {
-    vmap(val)[field]
+function {:inline} SelectField(val: Value, field: FieldName): Value {
+    vmap(val,field)
 }
 
 // Dereferences a reference.
-function {:inline 1} Dereference(m: Memory, ref: Reference): Value {
+function {:inline} Dereference(m: Memory, ref: Reference): Value {
     ReadValue(p#Reference(ref), contents#Memory(m)[l#Reference(ref)])
 }
 
 // Checker whether sender account exists.
-function {:inline 1} ExistsTxnSenderAccount(m: Memory, txn: Transaction): bool {
+function {:inline} ExistsTxnSenderAccount(m: Memory, txn: Transaction): bool {
    // TODO: need to verify whether this is the intended semantics. We assume right now
    //   we can identify sender account existence if there is any resource under the sender address.
    // (exists resource: TypeValue :: domain#Memory(m)[Global(resource, sender#Transaction(txn))])
@@ -325,7 +320,7 @@ function {:inline 1} ExistsTxnSenderAccount(m: Memory, txn: Transaction): bool {
 }
 
 // Returns sender address.
-function {:inline 1} TxnSenderAddress(txn: Transaction): Address {
+function {:inline} TxnSenderAddress(txn: Transaction): Address {
   sender#Transaction(txn)
 }
 
@@ -634,7 +629,7 @@ procedure {:inline 1} Vector_pop_back(ta: TypeValue, r: Reference) returns (e: V
         abort_flag := true;
         return;
     }
-    e := vmap(v)[len-1];
+    e := vmap(v,len-1);
     call WriteRef(r, pop_back_vector(v));
 }
 
@@ -650,7 +645,8 @@ procedure {:inline 1} Vector_reverse(ta: TypeValue, r: Reference) {
     var v: Value;
     v := Dereference(m, r);
     assume is#Vector(v);
-    call WriteRef(r, reverse_vector(v));
+    call v := reverse_vector(v);
+    call WriteRef(r, v);
 }
 
 procedure {:inline 1} Vector_length(ta: TypeValue, r: Reference) returns (l: Value) {
@@ -723,7 +719,7 @@ requires vlen(Dereference(m, src)) > i#Integer(i);
         abort_flag := true;
         return;
     }
-    e := vmap(v)[i_ind];
+    e := vmap(v,i_ind);
 }
 
 procedure {:inline 1} Vector_set(ta: TypeValue, src: Reference, i: Value, e: Value) {
